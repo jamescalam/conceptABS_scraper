@@ -8,10 +8,32 @@ import os
 import json
 import time
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 from openpyxl import load_workbook
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
+
+
+def format_df(df):
+    """
+    This function will format the dataframe, eg converting Launch Date values
+    into datetime objects and using regular expressions to  fix weird currency
+    formats (such as [41.5m] in the 'Face Value' column).
+    """
+    # setting up vectorised date conversion function
+    def date_convert(x):
+        return datetime.strptime(x, '%d %b %Y')
+
+    v_date_convert = np.vectorize(date_convert)
+
+    df['Launch Date'] = v_date_convert(df['Launch Date'])
+
+    # !!! will need to do face value thing later as also needs currency conversion
+
+    return df
 
 
 class webscrape:
@@ -25,7 +47,7 @@ class webscrape:
             # if no details JSON object exists, create new using earliest
             # start date
             self.details = {
-                    'previous': '27 Mar 2019'
+                    'previous': '01 Jan 2010'
                     }
             # saving to details.json
             with open(detail_loc, 'w') as fp:
@@ -36,13 +58,13 @@ class webscrape:
             with open(detail_loc, 'r') as fp:
                 self.details = json.load(fp)
 
-    def download(self):
+    def download(self, sleeptime):
         """
         Here we will pull all data from the previous web scrape to the current
-        date.
+        date. The sleeptime argument controls the time that the program will
+        wait in order to allow webpages to load, adjust to suit internet
+        speeds.
         """
-        # set sleeptime here (time required to let webpages load)
-        sleeptime = 1
 
         # getting the current date in the required format
         # eg = dd MMM yyyy (ex 01 Mar 2019)
@@ -169,25 +191,42 @@ class webscrape:
         # finish
         driver.close()
 
+        # return the filename of document downloaded
+        return new_file[0]
+
     def scrape_all(self):
         """
         Here will scrape all data from the set starting date to now. This
-        requires the data directory to contain no xlsx files.
+        will overwrite the data.csv file.
         """
         pass
 
-    def save_scrape_info(self):
-        """
-        Here we will save the scrape info to the detail.json file within
-        the properties directory.
-        """
-        pass
+    """
+    =======================================================================
+
+    """
 
 
-class results:
+class data:
     
     def __init__(self):
-        pass
+        """
+        Here we will check for the the full dataframe located in the data dir
+        with the filename 'data.csv'. If the data file is not present we will
+        initialise an empty dataframe with the correct headers ready to append
+        to.
+        """
+        # set the target location
+        target = r'data\data.csv'
+
+        # check if the data.csv file exists, if not, initialise a new file
+        if not os.path.isfile(target):
+            # created a new dataframe object
+            self.current = pd.DataFrame()
+        else:
+            # load the current data
+            self.current = pd.read_csv(target)
+        
 
     def add(self, filename):
         """
@@ -195,7 +234,7 @@ class results:
         combined datatable in the data\full directory.
         """
         # set the target file
-        target = r'data\{}.xlsx'.format(filename)
+        target = r'data\{}'.format(filename)
         # first we will remove the top 5 rows in the CABS file so we are left
         # with only headings and data
         print(r'Loading .\{}'.format(target))
@@ -223,9 +262,193 @@ class results:
         # now we can pull the formatted data into Pandas
         new = pd.read_excel(target)
 
+        # append the new data to the self.current dataframe
+        self.current = self.current.append(new, ignore_index=True)
 
-    def import_all(self):
+        # !!! remove duplicates - confirm with Laura that this is okay
+        print('line 238: check with Laura this is okay')
+        self.current.drop_duplicates(inplace=True)
+
+        # now save the new data object
+        self.current.to_csv(r'data\data.csv')
+
+        # update the user on progress
+        print('\'{}\' data appended to data file'.format(filename))
+
+        # now delete the uneeded CABS Search Results excel sheet
+        os.remove(target)
+
+        # update the properties/details.json file with the most recent pull date
+        # first we specify the target file...
+        detail_loc = r'properties\details.json'
+        # now we load the current detail.json
+        with open(detail_loc, 'r') as fp:
+            detail = json.load(fp)
+        # update the 'previous' property with the current datetime (formatted)
+        detail['previous'] = datetime.strftime(datetime.now(), '%d %b %Y')
+        # finally, save the updated date to details.json
+        with open(detail_loc, 'w') as fp:
+             json.dump(detail, fp)
+    
+    """
+    =======================================================================
+
+    """
+
+
+class visualise:
+    """
+    Visualisation class used to generate the figures and dashboards using the
+    conceptABS data.
+    """
+    # YOU SHOULD LOOK INTO https://matplotlib.org/gallery/misc/multipage_pdf.html#sphx-glr-gallery-misc-multipage-pdf-py FOR REPORT CREATION (LOOKS PROMISING - USING LaTeX ALSO)
+    def __init__(self):
         """
-        Will use this to pull in all data within the data directory.
+        Here we import the conceptABS data and the most recent data pull date.
+        We also check if the outputs directory exists, if not, we create it.
+        """
+        # pulling in the conceptABS data
+        self.data = pd.read_csv(r'data\data.csv')
+        # cleaning the data
+        self.data = format_df(self.data)
+
+        # pulling in the most recent pull-date
+        with open(r'properties\details.json', 'r') as fp:
+            detail = json.load(fp)
+
+        self.pull_date = detail['previous']  # !!! maybe should update 'previous' to be 'pull-date'
+
+        # check if output directory exists, if not, create it
+        if not os.path.isdir(r'reports\vis'):
+            os.mkdir(r'reports\vis')
+
+    def normal(self):
+        """
+        Here we will generate an excel-based dashboard using figures built in
+        matplotlib and seaborn.
+        """
+        # YOU SHOULD CONSIDER CREATING A PURE HTML/CSS WEB-REPORT BY MAKING A PRESET HTML STRING AND POPULATING IT WITH THE RELEVANT INFO, THIS WILL ALSO INCLUDE THE FIGURES BUILT - COULD INCLUDE MULTIPLE PAGES ETC
+        # WHICH COULD THEN AUTOMATICALLY COMPILE INTO A ZIP FILE READY TO BE SENT TO CLIENTS
+        # basic figures setup
+        plt.figure(figsize=(12,8))
+        sns.set_style('darkgrid')
+
+        def time_series(x, y, ylabel):
+            """
+            Function for plotting a time-series of y against x (time).
+            """
+            # figure setup
+            plt.figure(figsize=(12,8))
+            sns.set_style('darkgrid')
+
+            # create and set title
+            title = '{} time-series'.format(ylabel)
+            plt.title(label=title+'\n')
+
+            # create plot
+            sns.lineplot(x=x, y=y)
+
+            # label settings
+            plt.xlabel('Date')
+            plt.ylabel(ylabel)
+
+            # save plot
+            plt.savefig(r'reports\vis\{}.png'.format(title))
+            
+        """
+        Plotting the required figures.
+        """
+        time_series(self.data['Launch Date'], self.data['Euro Equiv.'], 'Tranch Value EUR')
+
+        """
+        Building the HTML sheets.
+        """
+        index = '''<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Deloitte Valuations</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="template/bootstrap.min.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark static-top">
+        <div class="container">
+            <a class="navbar-brand" href="#">CDO Valuations</a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarResponsive">
+                <ul class="navbar-nav ml-auto">
+                    <li class="nav-item active">
+                        <a class="nav-link" href="#">Summary
+                            <span class="sr-only">(current)</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Breakdown</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Portfolios</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Data</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Content -->
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 text-center">
+                <h1 class="mt-5">Summary</h1>
+                <p class="lead">An overview of CDO data.</p>
+                <img src="{}"/>
+                <ul class="list-unstyled">
+                    <li>Last Updated: {}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap core JavaScript -->
+    <script src="template/jquery.min.js"></script>
+    <script src="template/bootstrap.bundle.min.js"></script>
+
+</body>
+
+</html>
+'''.format('vis/Tranch Value EUR time-series.png', self.pull_date)
+
+        # now save the formatted html index document
+        fp = open(r'reports\index.html', 'w')
+        fp.write(index)
+        fp.close()
+            
+
+    
+    def interactive(self):
+        """
+        Here we will initialise a simple web server to use for interactive
+        d3.js visualisations.
+        - don't get distracted by this part - do it last
         """
         pass
+
+    """
+    =======================================================================
+
+    """
