@@ -322,47 +322,116 @@ class visualise:
         if not os.path.isdir(r'reports\vis'):
             os.mkdir(r'reports\vis')
 
-    def normal(self):
+    def html(self):
         """
         Here we will generate an excel-based dashboard using figures built in
         matplotlib and seaborn.
         """
         # YOU SHOULD CONSIDER CREATING A PURE HTML/CSS WEB-REPORT BY MAKING A PRESET HTML STRING AND POPULATING IT WITH THE RELEVANT INFO, THIS WILL ALSO INCLUDE THE FIGURES BUILT - COULD INCLUDE MULTIPLE PAGES ETC
         # WHICH COULD THEN AUTOMATICALLY COMPILE INTO A ZIP FILE READY TO BE SENT TO CLIENTS
-        # basic figures setup
-        plt.figure(figsize=(12,8))
-        sns.set_style('darkgrid')
 
-        def time_series(x, y, ylabel):
+        # getting a monthly date column (eg day = 01, time = 00:00:00)
+        # setting up function
+        def month_dt(x):
+            # convert to string containing just month and year then back to
+            # datetime object which will assume day=01 and time=00:00:00
+            x = datetime.strftime(x, '%m-%Y')
+            return datetime.strptime(x, '%m-%Y')
+
+        # creating the monthly launch date column
+        self.data['Monthly Launch Date'] = self.data['Launch Date'].apply(month_dt)
+
+        # pulling the visuals.xlsx mappings file
+        visuals_df = pd.read_excel(r'properties\visuals.xlsx')
+
+        """
+        Plotting functions
+        """
+
+        def time_series(x, y, ylabel, title):
             """
             Function for plotting a time-series of y against x (time).
             """
-            # figure setup
-            plt.figure(figsize=(12,8))
-            sns.set_style('darkgrid')
-
-            # create and set title
-            title = '{} time-series'.format(ylabel)
-            plt.title(label=title+'\n')
-
             # create plot
             sns.lineplot(x=x, y=y)
 
             # label settings
-            plt.xlabel('Date')
+            plt.xlabel('Time')
             plt.ylabel(ylabel)
+
+            # tighten layout (to remove unwanted whitespace)
+            plt.tight_layout()
 
             # save plot
             plt.savefig(r'reports\vis\{}.png'.format(title))
             
-        """
-        Plotting the required figures.
-        """
-        time_series(self.data['Launch Date'], self.data['Euro Equiv.'], 'Tranch Value EUR')
+        def barchart(x, y, xlabel, ylabel, title):
+            """
+            Function for plotting a simple barchart.
+            """
+            # create plot
+            sns.barplot(x=x, y=y)
+
+            # label settings
+            plt.xlabel(xlabel)
+            plt.ylabel(ylabel)
+            plt.xticks(rotation=45)
+
+            # tighten layout
+            plt.tight_layout()
+
+            # save plot
+            plt.savefig(r'reports\vis\{}.png'.format(title))
+            
+        def plotter(data, row):
+            """
+            This function controls the mapping -> visualisation logic. It also
+            initialises the figure and colour palette.
+            """
+            # basic figure setup
+            plt.figure(figsize=(12,8))
+            sns.set_style('darkgrid')
+            # colour palette
+            sns.set_palette(['#86BC25', '#000000', '#00A3E0',
+                             '#012169', '#D0D0CE', '#2C5234',
+                             '#43B02A', '#046A38', '#BBBCBC',
+                             '#97999B', '#0097A9', '#62B5E5',
+                             '#C4D600', '#0076A8', '#75787B',
+                             '#53565A', '#E3E48D', '#009A44',
+                             '#DDEFE8', '#9DD4CF', '#A0DCFF',
+                             '#005587', '#041E42', '#A7A8AA',
+                             '#6FC2B4', '#00ABAB', '#007680',
+                             '#004F59', '#63666A'])
+
+            # checking the required figure type
+            if row['Type'] == 'time series':
+                # plot time series plot
+                time_series(self.data[row['x-axis']], self.data[row['y-axis']],
+                            row['y Label'], row['Title'])
+            elif row['Type'] == 'barchart':
+                # check if we want to filter to top n categories (x-axis)
+                if str(row['Top']) != 'nan':
+                    top = int(row['Top'])
+                    # try grouping x and summing y first
+                    try:
+                        data = data.groupby(by=row['x-axis']).sum()[[row['y-axis']]].reset_index()
+                    except TypeError:
+                        data = data.groupby(by=row['x-axis']).count()[[row['y-axis']]].reset_index()
+                    # now filter so we only get top n number of rows
+                    data = data.nlargest(top, row['y-axis'])
+                    
+                # now plot
+                barchart(data[row['x-axis']], data[row['y-axis']],
+                         row['x Label'], row['y Label'], row['Title'])
 
         """
         Building the HTML sheets.
         """
+        #######################################
+        ###             INDEX               ###
+        #######################################
+
+        # start with the top of the page (before any custom figures or text)
         index = '''<!DOCTYPE html>
 <html lang="en">
 
@@ -397,10 +466,10 @@ class visualise:
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Breakdown</a>
+                        <a class="nav-link" href="https://www.youtube.com/watch?v=7ohbr90cKDc">Breakdown</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Portfolios</a>
+                        <a class="nav-link" href="portfolio.html">Portfolios</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#">Data</a>
@@ -416,7 +485,29 @@ class visualise:
             <div class="col-lg-12 text-center">
                 <h1 class="mt-5">Summary</h1>
                 <p class="lead">An overview of CDO data.</p>
-                <img src="{}"/>
+'''
+        # now we will add summary figures - first we get summary rows only
+        summary_df = visuals_df[visuals_df['Section'] == 'Summary']
+
+        for i in range(len(summary_df)):
+            # grabbing data row by row
+            row = summary_df.iloc[i]
+
+            # create figure
+            plotter(self.data, row)
+
+            # and now append this plot filepath to the html code
+            index += '''
+                    <h4>{}</h4>
+                        <img src="{}"/>
+                    <p>{}</p>
+                    '''.format(row['Title'],
+                    'vis/{}.png'.format(row['Title']),
+                    row['Description'])
+
+        # now we are done generating summary figures and their HTML, append
+        # final part of index HTML
+        index += '''
                 <ul class="list-unstyled">
                     <li>Last Updated: {}</li>
                 </ul>
@@ -431,11 +522,113 @@ class visualise:
 </body>
 
 </html>
-'''.format('vis/Tranch Value EUR time-series.png', self.pull_date)
+'''.format(self.pull_date)
 
         # now save the formatted html index document
         fp = open(r'reports\index.html', 'w')
         fp.write(index)
+        fp.close()
+        
+        #######################################
+        ###            PORTFOLIO            ###
+        #######################################
+
+        # start with the top of the page (before any custom figures or text)
+        portfolio = '''<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Deloitte Valuations</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="template/bootstrap.min.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark static-top">
+        <div class="container">
+            <a class="navbar-brand" href="#">CDO Valuations</a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarResponsive">
+                <ul class="navbar-nav ml-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">Summary</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://www.youtube.com/watch?v=7ohbr90cKDc">Breakdown</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Portfolios
+                            <span class="sr-only">(current)</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Data</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Content -->
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-12 text-center">
+                <h1 class="mt-5">Portfolios</h1>
+                <p class="lead">An overview of bank portfolios.</p>
+'''
+        # now we will add summary figures - first we get summary rows only
+        portfolio_df = visuals_df[visuals_df['Section'] == 'Portfolio']
+
+        for i in range(len(portfolio_df)):
+            # grabbing data row by row
+            row = portfolio_df.iloc[i]
+
+            # create figure
+            plotter(self.data, row)
+
+            # and now append this plot filepath to the html code
+            portfolio += '''
+                    <h4>{}</h4>
+                        <img src="{}"/>
+                    <p>{}</p>
+                    '''.format(row['Title'],
+                    'vis/{}.png'.format(row['Title']),
+                    row['Description'])
+
+        # now we are done generating summary figures and their HTML, append
+        # final part of index HTML
+        portfolio += '''
+                <ul class="list-unstyled">
+                    <li>Last Updated: {}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap core JavaScript -->
+    <script src="template/jquery.min.js"></script>
+    <script src="template/bootstrap.bundle.min.js"></script>
+
+</body>
+
+</html>
+'''.format(self.pull_date)
+
+        # now save the formatted html index document
+        fp = open(r'reports\portfolio.html', 'w')
+        fp.write(portfolio)
         fp.close()
             
 

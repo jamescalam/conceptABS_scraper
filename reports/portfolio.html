@@ -26,16 +26,16 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarResponsive">
                 <ul class="navbar-nav ml-auto">
-                    <li class="nav-item active">
-                        <a class="nav-link" href="#">Summary
-                            <span class="sr-only">(current)</span>
-                        </a>
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">Summary</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="https://www.youtube.com/watch?v=7ohbr90cKDc">Breakdown</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="portfolio.html">Portfolios</a>
+                        <a class="nav-link active" href="#">Portfolios
+                            <span class="sr-only">(current)</span>
+                        </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#">Data</a>
@@ -49,16 +49,12 @@
     <div class="container">
         <div class="row">
             <div class="col-lg-12 text-center">
-                <h1 class="mt-5">Summary</h1>
-                <p class="lead">An overview of CDO data.</p>
+                <h1 class="mt-5">Portfolios</h1>
+                <p class="lead">An overview of bank portfolios.</p>
 
-                    <h4>Tranch Value EUR</h4>
-                        <img src="vis/Tranch Value EUR.png"/>
-                    <p>This figure demonstrates probably very little as I have no idea what any of this is. Nonetheless, observe that the tranch value decreases over time (maybe this means banks are less will to offer high value loans - if that is what these are, I don't know...), very cool.</p>
-                    
-                    <h4>Tranch Value USD</h4>
-                        <img src="vis/Tranch Value USD.png"/>
-                    <p>This figure literally shows the exact same thing as the above figure, however this figure is in USD. I should also point out that conceptABS is very shit and that both EUR Equiv. (above) and USD Equiv. (this) are calculated from a Face Value column. Which is great, however what conceptABS can't deal with is super basic formatting differences, so when they have data formatted like [4.5m], rather than converting this into 4,500,000, they just ignore it and leave your EUR Equiv. and USD Equiv. columns blank, so the dataset isn't even complete. Deloitte needs to stop picking shit companies that are stuck in the 90s.</p>
+                    <h4>Top 7 Issuers by EUR Value</h4>
+                        <img src="vis/Top 7 Issuers by EUR Value.png"/>
+                    <p>nan</p>
                     
                 <ul class="list-unstyled">
                     <li>Last Updated: 06 Apr 2019</li>
