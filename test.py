@@ -37,6 +37,13 @@ driver = webdriver.Chrome('drivers/chromedriver.exe')
 # opening conceptABS webpage
 driver.get('https://www.conceptabs.co.uk/default.aspx')
 
+# get user and pass from secret folder
+with open('secret/user.txt', 'r') as fp:
+    user = fp.read()
+
+with open('secret/pass.txt', 'r') as fp:
+    pw = fp.read()
+
 """
 Logging in
 """
@@ -50,10 +57,10 @@ while True:
     # giving page a moment to load
     time.sleep(sleeptime)
     # username
-    driver.find_element_by_name('ctl00$CPH1$LoginView1$Login1$UserName').send_keys('DELTE5')
+    driver.find_element_by_name('ctl00$CPH1$LoginView1$Login1$UserName').send_keys(user)
 
     # password
-    driver.find_element_by_name('ctl00$CPH1$LoginView1$Login1$Password').send_keys('jamesr_5')
+    driver.find_element_by_name('ctl00$CPH1$LoginView1$Login1$Password').send_keys(pw)
 
     # press login button
     driver.find_element_by_name('ctl00$CPH1$LoginView1$Login1$LoginImageButton').click()
