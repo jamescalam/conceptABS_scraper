@@ -37,7 +37,7 @@ def format_df(df):
 
 
 class webscrape:
-    
+
     def __init__(self):
         """
         Here will find when last web scrape was conducted.
@@ -69,16 +69,16 @@ class webscrape:
         # getting the current date in the required format
         # eg = dd MMM yyyy (ex 01 Mar 2019)
         current_date = datetime.strftime(datetime.today(), '%d %b %Y')
-        
+
         # and for the previous week
         prior_date = self.details['previous']
 
         # show user what date range we will be using
         print('Pulling data from {} to {}.'.format(prior_date, current_date))
-        
+
         # setting up Selenium web driver
         driver = webdriver.Chrome('drivers/chromedriver.exe')
-        
+
         # opening conceptABS webpage
         driver.get('https://www.conceptabs.co.uk/default.aspx')
 
@@ -98,18 +98,18 @@ class webscrape:
         while True:
             attempt += 1
             print('Login attempt {}'.format(attempt))
-        
+
             # giving page a moment to load
             time.sleep(sleeptime)
             # username
             driver.find_element_by_name('ctl00$CPH1$LoginView1$Login1$UserName').send_keys(user)
-        
+
             # password
             driver.find_element_by_name('ctl00$CPH1$LoginView1$Login1$Password').send_keys(pw)
-        
+
             # press login button
             driver.find_element_by_name('ctl00$CPH1$LoginView1$Login1$LoginImageButton').click()
-        
+
             """
             Navigating to CDOs
             """
@@ -128,44 +128,44 @@ class webscrape:
                 if attempt > 9:
                     driver.close()
                     raise ValueError('Too many refused login attempts. Driver closed.')
-                
+
         # give page time to load
         time.sleep(sleeptime)
-        
+
         # click the Date tab
         driver.find_element_by_id('__tab_ctl00_CPH1_TC3_tpDate').click()
-        
+
         time.sleep(sleeptime)
-            
+
         # select first box (select current.date - 1 week)
         driver.find_element_by_name('ctl00$CPH1$TC3$tpDate$Date1').send_keys(prior_date)
-        
+
         # select second box (select current.date)
         driver.find_element_by_id('ctl00_CPH1_TC3_tpDate_Date2').click()
         time.sleep(sleeptime)
         driver.find_element_by_id('ctl00_CPH1_TC3_tpDate_Date2').send_keys(current_date)
-        
+
         attempt = 0
-        
+
         while True:
             attempt += 1
             print('Pulling data attempt {}'.format(attempt))
             time.sleep(sleeptime)
-        
+
             # select + add filter
             driver.find_element_by_name('ctl00$CPH1$TC3$tpDate$btnDateAdd').click()
             time.sleep(sleeptime)
-            
+
             # press search
             driver.find_element_by_name('ctl00$CPH1$btnSearch').click()
             time.sleep(sleeptime)
-            
+
             # let page load
             time.sleep(sleeptime)
-            
+
             # get list of downloads folder before download
             pre_dl = os.listdir(r'C:\Users\jamesbriggs\Downloads')
-            
+
             try:
                 # select tranches
                 driver.find_element_by_name('ctl00$CPH1$btnExportTranches').click()
@@ -175,26 +175,26 @@ class webscrape:
                     driver.close()
                     raise ValueError('Too many failed data pull attempts. Driver closed.')
                 pass
-        
+
         # wait 5 seconds to allow download
         time.sleep(5)
-        
+
         # get list of downloads folder before download
         post_dl = os.listdir(r'C:\Users\jamesbriggs\Downloads')
-        
+
         # find the difference between pre and post DL lists
         new_file = list(set(post_dl) - set(pre_dl))
-        
+
         if len(new_file) == 1:
             print('New files:\n{}'.format(new_file[0]))
-            
+
             # moving file
             os.rename(r'C:\Users\jamesbriggs\Downloads\{}'.format(new_file[0]),
                       r'C:\Users\jamesbriggs\Documents\Web Scraping\ConceptABS\data\{}'.format(new_file[0]))
-            
+
         else:
             raise IOError('No new files downloaded to Downloads directory.')
-        
+
         # finish
         driver.close()
 
@@ -215,7 +215,7 @@ class webscrape:
 
 
 class data:
-    
+
     def __init__(self):
         """
         Here we will check for the the full dataframe located in the data dir
@@ -233,7 +233,7 @@ class data:
         else:
             # load the current data
             self.current = pd.read_csv(target)
-        
+
 
     def add(self, filename):
         """
@@ -296,7 +296,7 @@ class data:
         # finally, save the updated date to details.json
         with open(detail_loc, 'w') as fp:
              json.dump(detail, fp)
-    
+
     """
     =======================================================================
 
@@ -371,7 +371,7 @@ class visualise:
 
             # save plot
             plt.savefig(r'reports\vis\{}.png'.format(title))
-            
+
         def barchart(x, y, xlabel, ylabel, title):
             """
             Function for plotting a simple barchart.
@@ -389,7 +389,7 @@ class visualise:
 
             # save plot
             plt.savefig(r'reports\vis\{}.png'.format(title))
-            
+
         def plotter(data, row):
             """
             This function controls the mapping -> visualisation logic. It also
@@ -426,7 +426,7 @@ class visualise:
                         data = data.groupby(by=row['x-axis']).count()[[row['y-axis']]].reset_index()
                     # now filter so we only get top n number of rows
                     data = data.nlargest(top, row['y-axis'])
-                    
+
                 # now plot
                 barchart(data[row['x-axis']], data[row['y-axis']],
                          row['x Label'], row['y Label'], row['Title'])
@@ -535,7 +535,7 @@ class visualise:
         fp = open(r'reports\index.html', 'w')
         fp.write(index)
         fp.close()
-        
+
         #######################################
         ###            PORTFOLIO            ###
         #######################################
@@ -637,9 +637,9 @@ class visualise:
         fp = open(r'reports\portfolio.html', 'w')
         fp.write(portfolio)
         fp.close()
-            
 
-    
+
+
     def interactive(self):
         """
         Here we will initialise a simple web server to use for interactive
